@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Microjuegos - Versión Simple</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body style="margin: 0; background: #000;">
+
+<script>
+// ESCENA 1: MENÚ
+class MenuScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MenuScene' });
+    }
+
+    create() {
+        this.add.text(400, 200, 'MICROJUEGOS', { 
+            fontSize: '64px', 
+            fill: '#fff' 
+        }).setOrigin(0.5);
+
+        const boton = this.add.text(400, 400, '▶ INICIAR', { 
+            fontSize: '48px', 
+            fill: '#0f0',
+            backgroundColor: '#000',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5);
+
+        boton.setInteractive({ useHandCursor: true });
+        
+        boton.on('pointerdown', function() {
+            console.log('Botón clickeado! Iniciando Pong...');
+            this.scene.start('PongScene');
+        }, this);
+    }
+}
+
+// ESCENA 2: PONG SIMPLE
+class PongScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'PongScene' });
+    }
+
+    create() {
+        this.add.text(400, 50, 'PONG - 5 segundos', { 
+            fontSize: '32px', 
+            fill: '#fff' 
+        }).setOrigin(0.5);
+
+        // Paleta del jugador (izquierda)
+        this.player = this.add.rectangle(50, 300, 20, 100, 0x00ff00);
+        
+        // Paleta de la CPU (derecha)
+        this.cpu = this.add.rectangle(750, 300, 20, 100, 0xff0000);
+        
+        // Pelota
+        this.ball = this.add.circle(400, 300, 10, 0xffffff);
+        this.ballVelX = 5;
+        this.ballVelY = 3;
+
+        // Temporizador
+        this.time.delayedCall(5000, function() {
+            this.add.text(400, 300, '¡TIEMPO!', { 
+                fontSize: '64px', 
+                fill: '#ff0' 
+            }).setOrigin(0.5);
+            
+            this.time.delayedCall(2000, function() {
+                this.scene.start('MenuScene');
+            }, [], this);
+        }, [], this);
+    }
+
+    update() {
+        // Mover paleta del jugador con el ratón
+        this.player.y = this.input.activePointer.y;
+
+        // IA simple para la CPU
+        if (this.ball.y > this.cpu.y) {
+            this.cpu.y += 3;
+        } else {
+            this.cpu.y -= 3;
+        }
+
+        // Mover pelota
+        this.ball.x += this.ballVelX;
+        this.ball.y += this.ballVelY;
+
+        // Rebote en paredes arriba/abajo
+        if (this.ball.y < 10 || this.ball.y > 590) {
+            this.ballVelY = -this.ballVelY;
+        }
+
+        // Rebote en paleta del jugador
+        if (this.ball.x < 70 && this.ball.x > 40 && 
+            Math.abs(this.ball.y - this.player.y) < 60) {
+            this.ballVelX = -this.ballVelX;
+            this.ball.x = 75;
+        }
+
+        // Rebote en paleta de la CPU
+        if (this.ball.x > 730 && this.ball.x < 760 && 
+            Math.abs(this.ball.y - this.cpu.y) < 60) {
+            this.ballVelX = -this.ballVelX;
+            this.ball.x = 725;
+        }
+
+        // Reiniciar si sale por los lados
+        if (this.ball.x < 0 || this.ball.x > 800) {
+            this.ball.x = 400;
+            this.ball.y = 300;
+            this.ballVelX = 5;
+            this.ballVelY = 3;
+        }
+    }
+}
+
+// CONFIGURACIÓN DEL JUEGO
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    backgroundColor: '#000033',
+    scene: [MenuScene, PongScene]
+};
+
+const game = new Phaser.Game(config);
+</script>
+
+</body>
+</html>
