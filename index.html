@@ -2,127 +2,191 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Microjuegos - Versión Simple</title>
+    <title>Microjuegos - Pong a 1 Punto</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #111; }
+        canvas { border: 4px solid #444; border-radius: 8px; box-shadow: 0 0 20px rgba(0,255,0,0.2); }
+    </style>
 </head>
-<body style="margin: 0; background: #000;">
+<body>
 
 <script>
-// ESCENA 1: MENÚ
+// ---------------------------------------------------------
+// 1. ESCENA DEL MENÚ PRINCIPAL
+// ---------------------------------------------------------
 class MenuScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'MenuScene' });
-    }
+    constructor() { super({ key: 'MenuScene' }); }
 
     create() {
-        this.add.text(400, 200, 'MICROJUEGOS', { 
-            fontSize: '64px', 
-            fill: '#fff' 
-        }).setOrigin(0.5);
+        this.add.text(400, 200, 'MICROJUEGOS', { fontSize: '64px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(400, 280, 'Primero en llegar a 5 puntos gana', { fontSize: '24px', fill: '#aaa' }).setOrigin(0.5);
 
-        const boton = this.add.text(400, 400, '▶ INICIAR', { 
-            fontSize: '48px', 
-            fill: '#0f0',
-            backgroundColor: '#000',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5);
-
-        boton.setInteractive({ useHandCursor: true });
+        const boton = this.add.text(400, 400, '▶ INICIAR PONG', { 
+            fontSize: '36px', fill: '#0f0', backgroundColor: '#000', padding: { x: 20, y: 10 } 
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
         
-        boton.on('pointerdown', function() {
-            console.log('Botón clickeado! Iniciando Pong...');
-            this.scene.start('PongScene');
-        }, this);
+        boton.on('pointerover', () => boton.setStyle({ fill: '#fff', backgroundColor: '#0a0' }));
+        boton.on('pointerout', () => boton.setStyle({ fill: '#0f0', backgroundColor: '#000' }));
+        boton.on('pointerdown', () => this.scene.start('PongScene'));
     }
 }
 
-// ESCENA 2: PONG SIMPLE
+// ---------------------------------------------------------
+// 2. ESCENA DEL PONG (Objetivo: 5 Puntos)
+// ---------------------------------------------------------
 class PongScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'PongScene' });
-    }
+    constructor() { super({ key: 'PongScene' }); }
 
     create() {
-        this.add.text(400, 50, 'PONG - 5 segundos', { 
-            fontSize: '32px', 
-            fill: '#fff' 
-        }).setOrigin(0.5);
+        // Fondo y línea central
+        this.add.rectangle(400, 300, 800, 600, 0x000033);
+        this.add.rectangle(400, 300, 4, 600, 0xffffff).setAlpha(0.3);
 
-        // Paleta del jugador (izquierda)
+        // Texto de instrucciones
+        this.add.text(400, 30, 'Usa las FLECHAS ARRIBA/ABAJO para moverte', { fontSize: '18px', fill: '#aaa' }).setOrigin(0.5);
+
+        // Paletas
         this.player = this.add.rectangle(50, 300, 20, 100, 0x00ff00);
-        
-        // Paleta de la CPU (derecha)
         this.cpu = this.add.rectangle(750, 300, 20, 100, 0xff0000);
         
         // Pelota
         this.ball = this.add.circle(400, 300, 10, 0xffffff);
-        this.ballVelX = 5;
-        this.ballVelY = 3;
+        this.ballVelX = 6;
+        this.ballVelY = 4;
 
-        // Temporizador
-        this.time.delayedCall(5000, function() {
-            this.add.text(400, 300, '¡TIEMPO!', { 
-                fontSize: '64px', 
-                fill: '#ff0' 
-            }).setOrigin(0.5);
-            
-            this.time.delayedCall(2000, function() {
-                this.scene.start('MenuScene');
-            }, [], this);
-        }, [], this);
+        // Puntuación
+        this.playerScore = 0;
+        this.cpuScore = 0;
+        this.scoreText = this.add.text(400, 80, 'Tú: 0  |  CPU: 0', { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+
+        // Controles de teclado
+        this.cursors = this.input.keyboard.createCursorKeys();
+        
+        this.gameEnded = false;
     }
 
     update() {
-        // Mover paleta del jugador con el ratón
-        this.player.y = this.input.activePointer.y;
+        if (this.gameEnded) return;
 
-        // IA simple para la CPU
-        if (this.ball.y > this.cpu.y) {
-            this.cpu.y += 3;
-        } else {
-            this.cpu.y -= 3;
+        // 1. Movimiento del jugador (Teclado)
+        if (this.cursors.up.isDown) {
+            this.player.y -= 8;
+        } else if (this.cursors.down.isDown) {
+            this.player.y += 8;
         }
+        // Limitar movimiento del jugador al canvas
+        this.player.y = Phaser.Math.Clamp(this.player.y, 50, 550);
 
-        // Mover pelota
+        // 2. IA de la CPU (con velocidad limitada para que sea vencible)
+        const cpuSpeed = 5.5;
+        if (this.ball.y < this.cpu.y - 10) {
+            this.cpu.y -= cpuSpeed;
+        } else if (this.ball.y > this.cpu.y + 10) {
+            this.cpu.y += cpuSpeed;
+        }
+        this.cpu.y = Phaser.Math.Clamp(this.cpu.y, 50, 550);
+
+        // 3. Movimiento de la pelota
         this.ball.x += this.ballVelX;
         this.ball.y += this.ballVelY;
 
-        // Rebote en paredes arriba/abajo
+        // 4. Rebote en paredes superior e inferior
         if (this.ball.y < 10 || this.ball.y > 590) {
             this.ballVelY = -this.ballVelY;
         }
 
-        // Rebote en paleta del jugador
-        if (this.ball.x < 70 && this.ball.x > 40 && 
-            Math.abs(this.ball.y - this.player.y) < 60) {
-            this.ballVelX = -this.ballVelX;
-            this.ball.x = 75;
+        // 5. Colisión con paleta del JUGADOR
+        if (this.ball.x < 70 && this.ball.x > 40 && Math.abs(this.ball.y - this.player.y) < 60) {
+            this.ballVelX = Math.abs(this.ballVelX) + 0.5; // Acelera y va hacia la derecha
+            this.ballVelY += Phaser.Math.Between(-2, 2); // Cambio de ángulo aleatorio
+            this.ball.x = 75; // Evitar que se pegue
         }
 
-        // Rebote en paleta de la CPU
-        if (this.ball.x > 730 && this.ball.x < 760 && 
-            Math.abs(this.ball.y - this.cpu.y) < 60) {
-            this.ballVelX = -this.ballVelX;
+        // 6. Colisión con paleta de la CPU
+        if (this.ball.x > 730 && this.ball.x < 760 && Math.abs(this.ball.y - this.cpu.y) < 60) {
+            this.ballVelX = -(Math.abs(this.ballVelX) + 0.5); // Acelera y va hacia la izquierda
+            this.ballVelY += Phaser.Math.Between(-2, 2);
             this.ball.x = 725;
         }
 
-        // Reiniciar si sale por los lados
-        if (this.ball.x < 0 || this.ball.x > 800) {
-            this.ball.x = 400;
-            this.ball.y = 300;
-            this.ballVelX = 5;
-            this.ballVelY = 3;
+        // 7. Puntuación y Reinicio
+        if (this.ball.x < 0) {
+            // Punto para la CPU
+            this.cpuScore++;
+            this.resetBall();
+        } else if (this.ball.x > 800) {
+            // Punto para el Jugador
+            this.playerScore++;
+            this.resetBall();
+        }
+
+        // Actualizar texto de puntuación
+        this.scoreText.setText(`Tú: ${this.playerScore}  |  CPU: ${this.cpuScore}`);
+
+        // 8. Comprobar condición de victoria/derrota (5 puntos)
+        if (this.playerScore >= 1) {
+            this.endGame(true);
+        } else if (this.cpuScore >= 5) {
+            this.endGame(false);
+        }
+    }
+
+    resetBall() {
+        this.ball.x = 400;
+        this.ball.y = 300;
+        // Reiniciar velocidad base, pero dirección aleatoria hacia el que perdió el punto
+        this.ballVelX = (this.ballVelX > 0 ? -6 : 6); 
+        this.ballVelY = Phaser.Math.Between(-4, 4);
+        // Asegurar que no sea 0 en Y
+        if (this.ballVelY === 0) this.ballVelY = 3;
+    }
+
+    endGame(playerWon) {
+        this.gameEnded = true;
+        
+        if (playerWon) {
+            this.add.text(400, 300, '¡NIVEL SUPERADO!', { fontSize: '56px', fill: '#00ff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+            this.add.text(400, 380, 'Preparando siguiente juego...', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
+            
+            // Esperar 3 segundos y pasar a Snake
+            this.time.delayedCall(3000, () => {
+                this.scene.start('SnakeScene');
+            });
+        } else {
+            this.add.text(400, 300, '¡GAME OVER!', { fontSize: '56px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+            this.add.text(400, 380, 'La CPU fue más rápida', { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
+            this.add.text(400, 430, 'Clic para reintentar', { fontSize: '20px', fill: '#ff0' }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+                .on('pointerdown', () => this.scene.start('PongScene'));
         }
     }
 }
 
+// ---------------------------------------------------------
+// 3. ESCENA DEL SNAKE (Placeholder)
+// ---------------------------------------------------------
+class SnakeScene extends Phaser.Scene {
+    constructor() { super({ key: 'SnakeScene' }); }
+    create() {
+        this.add.rectangle(400, 300, 800, 600, 0x003300);
+        this.add.text(400, 250, 'MICROJUEGO 2: SNAKE', { fontSize: '48px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(400, 320, '(En desarrollo...)', { fontSize: '28px', fill: '#aaa' }).setOrigin(0.5);
+        
+        const backBtn = this.add.text(400, 420, 'Volver al Menú', { fontSize: '24px', fill: '#ff0', backgroundColor: '#000', padding: {x:10, y:5} })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true });
+        backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
+    }
+}
+
+// ---------------------------------------------------------
 // CONFIGURACIÓN DEL JUEGO
+// ---------------------------------------------------------
 const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
     backgroundColor: '#000033',
-    scene: [MenuScene, PongScene]
+    scene: [MenuScene, PongScene, SnakeScene]
 };
 
 const game = new Phaser.Game(config);
